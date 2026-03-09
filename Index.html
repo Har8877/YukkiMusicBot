@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>World Clock</title>
+
+<style>
+
+body{
+font-family: Arial;
+background:#f2f6fa;
+text-align:center;
+}
+
+h1{
+margin-top:20px;
+}
+
+.clock{
+font-size:28px;
+margin:20px;
+}
+
+button{
+
+padding:10px 20px;
+margin:5px;
+font-size:16px;
+border:none;
+border-radius:8px;
+background:#2AABEE;
+color:white;
+cursor:pointer;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>🌍 World Clock</h1>
+
+<div id="clock"></div>
+
+<div>
+
+<button onclick="selectCity(null)">Բոլոր քաղաքները</button>
+
+<button onclick="selectCity('Yerevan')">🇦🇲 Yerevan</button>
+
+<button onclick="selectCity('Berlin')">🇩🇪 Berlin</button>
+
+<button onclick="selectCity('Paris')">🇫🇷 Paris</button>
+
+<button onclick="selectCity('New York')">🇺🇸 New York</button>
+
+</div>
+
+<script>
+
+let selectedCity = null;
+
+function selectCity(city){
+selectedCity = city
+}
+
+async function updateClock(){
+
+let url="/time"
+
+if(selectedCity){
+url="/time?city="+selectedCity
+}
+
+let res=await fetch(url)
+
+let data=await res.json()
+
+let html=""
+
+for(let city in data){
+
+html += `<div class="clock">
+${data[city].flag} <b>${city}</b><br>
+${data[city].icon} 🕒 ${data[city].time}<br>
+UTC ${data[city].utc}
+</div>`
+
+}
+
+document.getElementById("clock").innerHTML = html
+
+}
+
+setInterval(updateClock,1000)
+
+updateClock()
+
+</script>
+
+</body>
+
+</html>
