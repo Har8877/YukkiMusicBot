@@ -5,7 +5,7 @@ from telebot.types import LabeledPrice, PreCheckoutQuery
 
 # ────────────────────────────────────────────────
 # Կարգավորումներ — փոխիր սրանք
-TOKEN = "8610914950:AAHsgrKg8DBrzWUNyEGkDvVKF67tPDojT28"           # BotFather-ից ստացած token
+TOKEN = "8610914950:AAHKI3pjasIdX6OM7gMdaQGHJGvDveKUOYQ"           # BotFather-ից ստացած token
 BOT_USERNAME = "@hacklab1bot"        # առանց @, օրինակ՝ admin_tools_bot
 SUBSCRIPTION_COST = 2                       # Stars-ի քանակը 1 ամսվա համար
 SUBSCRIPTION_DAYS = 30
