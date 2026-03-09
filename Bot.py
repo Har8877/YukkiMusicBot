@@ -3,12 +3,17 @@ import sqlite3
 import time
 from telebot.types import LabeledPrice, PreCheckoutQuery
 
-TOKEN = "8610914950:AAHsgrKg8DBrzWUNyEGkDvVKF67tPDojT28"          # փոխիր քո բոտի token-ով
-BOT_USERNAME = "HackLabBot"         # օրինակ՝ "admin_tools_bot" առանց @
+# ────────────────────────────────────────────────
+# Կարգավորումներ — փոխիր սրանք
+TOKEN = "8610914950:AAHsgrKg8DBrzWUNyEGkDvVKF67tPDojT28"           # BotFather-ից ստացած token
+BOT_USERNAME = "@hacklab1bot"        # առանց @, օրինակ՝ admin_tools_bot
+SUBSCRIPTION_COST = 2                       # Stars-ի քանակը 1 ամսվա համար
+SUBSCRIPTION_DAYS = 30
+# ────────────────────────────────────────────────
 
 bot = telebot.TeleBot(TOKEN)
 
-# --- Database setup ---
+# Database կապ
 conn = sqlite3.connect('bot.db', check_same_thread=False)
 c = conn.cursor()
 
@@ -28,79 +33,80 @@ CREATE TABLE IF NOT EXISTS referrals (
 
 conn.commit()
 
-# --- Helper functions ---
-def add_user(user_id):
+# Helper functions
+def add_user(user_id: int):
     c.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
     conn.commit()
 
-def add_referral(inviter_id, new_user_id):
+def add_referral(inviter_id: int, new_user_id: int):
     if inviter_id == new_user_id:
         return
     c.execute("INSERT INTO referrals (inviter_id, new_user_id) VALUES (?, ?)", (inviter_id, new_user_id))
     conn.commit()
-    bot.send_message(inviter_id, "🎉 Դուք ստացաք referral bonus (հետագայում կարող եք ավելացնել Stars-ով վճարումից հետո)")
+    try:
+        bot.send_message(inviter_id, "🎉 Շնորհակալություն! Դուք ստացաք referral bonus (հետագայում կարող եք ավելացնել պարգևը Stars-ով վճարումից հետո)")
+    except:
+        pass  # եթե օգտատերը բլոկավորել է բոտը
 
-def is_subscribed(user_id):
+def is_subscribed(user_id: int) -> bool:
     c.execute("SELECT subscription_until FROM users WHERE user_id = ?", (user_id,))
     row = c.fetchone()
-    if row and row[0] > int(time.time()):
-        return True
-    return False
+    return bool(row and row[0] > int(time.time()))
 
-def activate_subscription(user_id, days=30):
-    until = int(time.time()) + days * 24 * 3600
+def activate_subscription(user_id: int, days: int = SUBSCRIPTION_DAYS) -> int:
+    until = int(time.time()) + days * 86400
     c.execute("UPDATE users SET subscription_until = ? WHERE user_id = ?", (until, user_id))
     conn.commit()
     return until
 
-# --- Commands ---
-@bot.message_handler(commands=['start'])
-def start(message):
-    args = message.text.split()
-    user_id = message.from_user.id
+# ─── Commands ───────────────────────────────────────
 
-    add_user(user_id)
+@bot.message_handler(commands=['start'])
+def cmd_start(message):
+    args = message.text.split()
+    uid = message.from_user.id
+    add_user(uid)
 
     # Referral
     if len(args) > 1:
         try:
-            inviter_id = int(args[1])
-            add_referral(inviter_id, user_id)
+            inviter = int(args[1])
+            add_referral(inviter, uid)
         except:
             pass
 
-    text = f"""
-🤖 Admin Tools Bot
-
-📌 /all → կոչի բոլորին խմբում (պահանջվում է ակտիվ բաժանորդագրություն)
-💰 Ամսական վճար՝ 2⭐ Telegram Stars-ով
-
-Օգտագործեք /invite հրավերի համար
-/subscribe → վճարեք 2⭐ ամսական
-/stats → referral-ների քանակը
-"""
-    bot.send_message(message.chat.id, text)
+    text = (
+        "🤖 Admin Tools Bot\n\n"
+        f"📌 /all — կոչ բոլորին խմբում (պահանջվում է ակտիվ բաժանորդագրություն)\n"
+        f"💰 Ամսական վճար՝ {SUBSCRIPTION_COST}⭐ Telegram Stars-ով\n\n"
+        "Հրամաններ՝\n"
+        "/invite   — ստացիր referral link\n"
+        "/subscribe — վճարիր բաժանորդագրության համար\n"
+        "/stats    — տես referral-ների քանակը\n"
+    )
+    bot.reply_to(message, text)
 
 @bot.message_handler(commands=['invite'])
-def invite(message):
-    user_id = message.from_user.id
-    link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
-    bot.send_message(
-        message.chat.id,
-        f"🔗 Ձեր referral link՝\n{link}\n\nՀրավիրի 1 մարդու → ստացիր bonus (հետագայում)"
+def cmd_invite(message):
+    uid = message.from_user.id
+    link = f"https://t.me/{BOT_USERNAME}?start={uid}"
+    text = (
+        f"🔗 Քո referral հղումը՝\n{link}\n\n"
+        "Հրավիրի ընկերներիդ և ստացիր bonus (հետագայում)"
     )
+    bot.reply_to(message, text)
 
 @bot.message_handler(commands=['subscribe'])
-def subscribe(message):
-    prices = [LabeledPrice(label='Ամսական բաժանորդագրություն', amount=2)]  # 2 Stars
+def cmd_subscribe(message):
+    prices = [LabeledPrice(label='Ամսական բաժանորդագրություն', amount=SUBSCRIPTION_COST)]
 
     try:
         bot.send_invoice(
             chat_id=message.chat.id,
-            title="Admin Tools – Ամսական մուտք",
-            description="Անսահմանափակ /all օգտագործում խմբերում (30 օր)",
+            title="Admin Tools — Ամսական մուտք",
+            description=f"Անսահմանափակ /all օգտագործում խմբերում ({SUBSCRIPTION_DAYS} օր)",
             payload=f"sub_{message.from_user.id}_{int(time.time())}",
-            provider_token="",              # պարտադիր դատարկ Stars-ի համար
+            provider_token="",                  # պարտադիր դատարկ Telegram Stars-ի համար
             currency="XTR",
             prices=prices,
             need_name=False,
@@ -110,53 +116,54 @@ def subscribe(message):
             is_flexible=False
         )
     except Exception as e:
-        bot.reply_to(message, f"Վրեպ invoice-ի ժամանակ՝ {str(e)}")
+        bot.reply_to(message, f"Վրեպ invoice ուղարկելիս:\n{str(e)}")
 
-@bot.pre_checkout_query_handler(func=lambda query: True)
-def process_pre_checkout_query(pre_checkout_query: PreCheckoutQuery):
-    bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+@bot.pre_checkout_query_handler(func=lambda q: True)
+def pre_checkout_handler(pre_checkout: PreCheckoutQuery):
+    bot.answer_pre_checkout_query(pre_checkout.id, ok=True)
 
 @bot.message_handler(content_types=['successful_payment'])
-def successful_payment(message):
-    user_id = message.from_user.id
+def successful_payment_handler(message):
+    uid = message.from_user.id
     payload = message.successful_payment.invoice_payload
-    total_amount = message.successful_payment.total_amount  # Stars-ի քանակը
+    amount = message.successful_payment.total_amount
 
     if payload.startswith("sub_"):
-        until = activate_subscription(user_id, days=30)
+        until = activate_subscription(uid)
         date_str = time.strftime('%Y-%m-%d %H:%M', time.localtime(until))
-        bot.send_message(
-            message.chat.id,
-            f"✅ Հաջող վճարում! {total_amount}⭐ վճարվեց\n"
-            f"Բաժանորդագրությունը ակտիվ է մինչև {date_str}"
+        text = (
+            f"✅ Վճարումը հաջողվեց!\n"
+            f"Վճարվել է՝ {amount}⭐\n"
+            f"Բաժանորդագրությունը ակտիվ է մինչև՝ {date_str}"
         )
+        bot.send_message(message.chat.id, text)
 
 @bot.message_handler(commands=['stats'])
-def stats(message):
-    user_id = message.from_user.id
-    c.execute("SELECT COUNT(*) FROM referrals WHERE inviter_id=?", (user_id,))
+def cmd_stats(message):
+    uid = message.from_user.id
+    c.execute("SELECT COUNT(*) FROM referrals WHERE inviter_id = ?", (uid,))
     count = c.fetchone()[0]
-    bot.send_message(message.chat.id, f"👥 Հրավիրած օգտատերեր՝ {count}")
+    bot.reply_to(message, f"👥 Դուք հրավիրել եք՝ {count} օգտատեր")
 
 @bot.message_handler(commands=['all'])
-def all_command(message):
+def cmd_all(message):
     if message.chat.type not in ['group', 'supergroup']:
-        bot.reply_to(message, "❌ /all աշխատում է միայն խմբերում։")
+        bot.reply_to(message, "❌ /all աշխատում է միայն խմբերում / supergroups-ում։")
         return
 
-    user_id = message.from_user.id
-
-    if not is_subscribed(user_id):
-        bot.reply_to(message, "❌ Բաժանորդագրությունը ժամկետանց է կամ բացակայում է։ Վճարեք /subscribe-ով։")
+    uid = message.from_user.id
+    if not is_subscribed(uid):
+        bot.reply_to(message, f"❌ Բաժանորդագրություն չունես։ Վճարիր /subscribe-ով ({SUBSCRIPTION_COST}⭐)")
         return
 
-    # Telegram-ը չի տալիս բոլոր անդամներին tag անել, ուստի պարզ տեքստ
-    bot.send_message(
-        message.chat.id,
-        "📣 Attention everyone! /all կանչված է ադմինի կողմից!\n"
-        "(Բոտը չի կարող tag անել բոլորին — դա Telegram-ի սահմանափակում է)"
-    )
+    # Telegram-ը չի տալիս բոտերին բոլոր անդամներին tag անել → պարզ տեքստ
+    bot.reply_to(message, "📢 Attention everyone!\n/all կանչվեց ադմինի կողմից!\n(բոտը չի կարող tag անել բոլորին — սա Telegram-ի սահմանափակում է)")
 
-# --- Run bot ---
-print("Bot started...")
-bot.infinity_polling()
+# ─── Start ──────────────────────────────────────────
+if __name__ == "__main__":
+    print("Bot is starting...")
+    try:
+        bot.infinity_polling(timeout=10, long_polling_timeout=5)
+    except Exception as e:
+        print(f"Critical error: {e}")
+        time.sleep(10)
