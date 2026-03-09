@@ -1,3 +1,5 @@
+pip install flask
+pip install pytz
 aiofiles
 aiohttp
 asyncio
