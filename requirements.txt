@@ -1,2 +1,2 @@
-telebot
+pyTelegramBotAPI==4.22.1
 aiogram
