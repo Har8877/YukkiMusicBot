@@ -1,7 +1,2 @@
 flask
 pytz
-aiofiles
-aiohttp
-asyncio
-dnspython
-ffmpeg-python
